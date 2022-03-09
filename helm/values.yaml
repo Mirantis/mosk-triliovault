@@ -1,0 +1,792 @@
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Default values for tvault.
+# This is a YAML-formatted file.
+# Declare name/value pairs to be passed into your templates.
+# name: value
+
+---
+release_group: null
+helm3_hook: true
+
+labels:
+  api:
+    node_selector_key: openstack-control-plane
+    node_selector_value: enabled
+  contego:
+    node_selector_key: openstack-compute-node
+    node_selector_value: enabled
+  job:
+    node_selector_key: openstack-control-plane
+    node_selector_value: enabled
+  test:
+    node_selector_key: openstack-control-plane
+    node_selector_value: enabled
+
+images:
+  tags:
+    bootstrap: docker.io/openstackhelm/heat:ocata-ubuntu_xenial
+    db_init: docker.io/openstackhelm/heat:ocata-ubuntu_xenial
+    db_drop: docker.io/openstackhelm/heat:ocata-ubuntu_xenial
+    rabbit_init: docker.io/rabbitmq:3.7-management
+    tvault_db_sync: docker.io/kolla/ubuntu-source-tvault-api:ocata
+    ks_user: docker.io/openstackhelm/heat:ocata-ubuntu_xenial
+    ks_service: docker.io/openstackhelm/heat:ocata-ubuntu_xenial
+    ks_endpoints: docker.io/openstackhelm/heat:ocata-ubuntu_xenial
+    tvault_api: docker.io/kolla/ubuntu-source-tvault-api:ocata
+    tvault_contego: docker.io/kolla/ubuntu-source-tvault-api:ocata
+    dep_check: quay.io/airshipit/kubernetes-entrypoint:v1.0.0
+    image_repo_sync: docker.io/docker:17.07.0
+  pull_policy: "IfNotPresent"
+  local_registry:
+    active: false
+    exclude:
+      - dep_check
+      - image_repo_sync
+
+pod:
+  security_context:
+    tvault:
+      pod:
+        runAsUser: 0
+      container:
+        tvault_api:
+          runAsUser: 63630
+        tvault_contego:
+          runAsUser: 0
+          privileged: true
+        tvault_wlm_api:
+          readOnlyRootFilesystem: false
+          allowPrivilegeEscalation: true
+          runAsUser: 0
+          privileged: true
+        tvault_wlm_scheduler:
+          readOnlyRootFilesystem: true
+          allowPrivilegeEscalation: false
+          runAsUser: 64060
+        tvault_wlm_cron:
+          allowPrivilegeEscalation: true
+          privileged: true
+          readOnlyRootFilesystem: true
+          runAsUser: 0
+        tvault_wlm_workloads:
+          readOnlyRootFilesystem: false
+          allowPrivilegeEscalation: true
+          runAsUser: 0
+          privileged: true
+  affinity:
+    anti:
+      type:
+        default: preferredDuringSchedulingIgnoredDuringExecution
+      topologyKey:
+        default: kubernetes.io/hostname
+      weight:
+        default: 10
+  mounts:
+    tvault_api:
+      init_container: null
+      tvault_api:
+        volumeMounts:
+        volumes:
+    tvault_contego:
+      init_container: null
+      tvault_contego:
+        volumeMounts:
+        volumes:
+    tvault_tests:
+      init_container: null
+      tvault_tests:
+        volumeMounts:
+        volumes:
+    tvault_db_sync:
+      tvault_db_sync:
+        volumeMounts:
+        volumes:
+  replicas:
+    api: 1
+  lifecycle:
+    upgrades:
+      deployments:
+        revision_history: 3
+        pod_replacement_strategy: RollingUpdate
+        rolling_update:
+          max_unavailable: 1
+          max_surge: 3
+      daemonsets:
+        pod_replacement_strategy: RollingUpdate
+        contego:
+          enabled: true
+          min_ready_seconds: 0
+          max_unavailable: 1
+    disruption_budget:
+      api:
+        min_available: 0
+    termination_grace_period:
+      api:
+        timeout: 30
+  resources:
+    enabled: false
+    api:
+      requests:
+        memory: "128Mi"
+        cpu: "100m"
+      limits:
+        memory: "1024Mi"
+        cpu: "2000m"
+    jobs:
+      bootstrap:
+        requests:
+          memory: "128Mi"
+          cpu: "100m"
+        limits:
+          memory: "1024Mi"
+          cpu: "2000m"
+      rabbit_init:
+        requests:
+          memory: "128Mi"
+          cpu: "100m"
+        limits:
+          memory: "1024Mi"
+          cpu: "2000m"
+      db_init:
+        requests:
+          memory: "128Mi"
+          cpu: "100m"
+        limits:
+          memory: "1024Mi"
+          cpu: "2000m"
+      db_sync:
+        requests:
+          memory: "128Mi"
+          cpu: "100m"
+        limits:
+          memory: "1024Mi"
+          cpu: "2000m"
+      ks_endpoints:
+        requests:
+          memory: "128Mi"
+          cpu: "100m"
+        limits:
+          memory: "1024Mi"
+          cpu: "2000m"
+      ks_service:
+        requests:
+          memory: "128Mi"
+          cpu: "100m"
+        limits:
+          memory: "1024Mi"
+          cpu: "2000m"
+      ks_user:
+        requests:
+          memory: "128Mi"
+          cpu: "100m"
+        limits:
+          memory: "1024Mi"
+          cpu: "2000m"
+      db_drop:
+        requests:
+          memory: "128Mi"
+          cpu: "100m"
+        limits:
+          memory: "1024Mi"
+          cpu: "2000m"
+      tests:
+        requests:
+          memory: "128Mi"
+          cpu: "100m"
+        limits:
+          memory: "1024Mi"
+          cpu: "2000m"
+      image_repo_sync:
+        requests:
+          memory: "128Mi"
+          cpu: "100m"
+        limits:
+          memory: "1024Mi"
+          cpu: "2000m"
+
+network:
+  api:
+    ingress:
+      public: true
+      classes:
+        namespace: "nginx"
+        cluster: "nginx-cluster"
+      annotations:
+        nginx.ingress.kubernetes.io/rewrite-target: /
+    external_policy_local: false
+    node_port:
+      enabled: false
+      port: 8042
+
+dependencies:
+  dynamic:
+    common:
+      local_image_registry:
+        jobs:
+          - tvault-image-repo-sync
+        services:
+          - endpoint: node
+            service: local_image_registry
+  static:
+    api:
+      jobs:
+        - tvault-db-sync
+        - tvault-ks-user
+        - tvault-ks-endpoints
+      services:
+        - endpoint: internal
+          service: oslo_db
+        - endpoint: internal
+          service: identity
+    wlm_api:
+      jobs:
+        - tvault-db-sync
+        - tvault-ks-user
+        - tvault-ks-endpoints
+      services:
+        - endpoint: internal
+          service: oslo_db
+        - endpoint: internal
+          service: identity
+    wlm_scheduler:
+      services:
+        - endpoint: internal
+          service: workloads
+    wlm_workloads:
+      services:
+        - endpoint: internal
+          service: workloads
+    wlm_cron:
+      services:
+        - endpoint: internal
+          service: workloads
+    contego:
+      jobs:
+        - tvault-db-sync
+        - tvault-ks-user
+        - tvault-ks-endpoints
+      services:
+        - endpoint: internal
+          service: oslo_db
+        - endpoint: internal
+          service: identity
+    rabbit_init:
+      services:
+        - service: oslo_messaging
+          endpoint: internal
+    db_init:
+      services:
+        - endpoint: internal
+          service: oslo_db
+    db_sync:
+      jobs:
+        - tvault-db-init
+      services:
+        - endpoint: internal
+          service: oslo_db
+    db_drop:
+      services:
+        - endpoint: internal
+          service: oslo_db
+    ks_endpoints:
+      jobs:
+        - tvault-ks-service
+      services:
+        - endpoint: internal
+          service: identity
+    ks_service:
+      services:
+        - endpoint: internal
+          service: identity
+    ks_user:
+      services:
+        - endpoint: internal
+          service: identity
+    image_repo_sync:
+      services:
+        - endpoint: internal
+          service: local_image_registry
+    tests:
+      jobs:
+        - tvault-db-sync
+      services:
+        - endpoint: internal
+          service: identity
+        - endpoint: internal
+          service: oslo_db
+
+conf:
+  fuse: |
+    # /etc/fuse.conf - Configuration file for Filesystem in Userspace (FUSE)
+
+    # Set the maximum number of FUSE mounts allowed to non-root users.
+    # The default is 1000.
+    mount_max = 2000
+
+    # Allow non-root users to specify the allow_other or allow_root mount options.
+    user_allow_other
+  tvostore:
+    DEFAULT:
+      verbose: true
+      log_file: /tmp/tvault-object-store.log
+      vault_data_directory: /var/triliovault-mounts
+      vault_s3_access_key_id: <INSERT DATA>
+      vault_s3_auth_version: DEFAULT
+      vault_s3_bucket: trilio-<INSERT DATA>
+      vault_s3_endpoint_url: https://rook-ceph-rgw-openstack-store.rook-ceph.svc:8443/
+      vault_s3_region: openstack-store
+      vault_s3_secret_access_key: <INSERT DATA>
+      vault_storage_das_device: none
+      vault_storage_type: s3
+      vault_s3_ssl_cert: /etc/s3.cert
+    s3fuse_sys_admin:
+      helper_command: sudo /usr/bin/workloadmgr-rootwrap /etc/workloadmgr/rootwrap.conf privsep-helper
+  alembic:
+    alembic:
+      script_location: /usr/share/workloadmgr/migrate_repo
+      version_locations: /usr/share/workloadmgr/migrate_repo/versions
+  paste:
+    composite:osapi_workloads:
+      use: call:workloadmgr.api:root_app_factory
+      /: apiversions
+      /v1: openstack_workloads_api_v1
+    composite:openstack_workloads_api_v1:
+      use: call:workloadmgr.api.middleware.auth:pipeline_factory
+      noauth: faultwrap sizelimit noauth apiv1
+      keystone: faultwrap sizelimit authtoken keystonecontext apiv1
+      keystone_nolimit: faultwrap sizelimit authtoken keystonecontext apiv1
+    filter:faultwrap:
+      paste.filter_factory: workloadmgr.api.middleware.fault:FaultWrapper.factory
+    filter:noauth:
+      paste.filter_factory: workloadmgr.api.middleware.auth:NoAuthMiddleware.factory
+    filter:sizelimit:
+      paste.filter_factory: oslo_middleware.sizelimit:RequestBodySizeLimiter.factory
+    app:apiv1:
+      paste.app_factory: workloadmgr.api.v1.router:APIRouter.factory
+    pipeline:apiversions:
+      pipeline: faultwrap osworkloadsversionapp
+    app:osworkloadsversionapp:
+      paste.app_factory: workloadmgr.api.versions:Versions.factory
+    filter:keystonecontext:
+      paste.filter_factory: workloadmgr.api.middleware.auth:WorkloadMgrKeystoneContext.factory
+    filter:authtoken:
+      paste.filter_factory: keystonemiddleware.auth_token:filter_factory
+      interface: internal
+  tvault:
+    DEFAULT:
+      dmapi_workers: 2
+      dmapi_enabled_apis: dmapi
+      bindir: /usr/bin
+      instance_name_template: instance-%08x
+      dmapi_listen: 0.0.0.0
+      rootwrap_config: /etc/dmapi/rootwrap.conf
+      verbose: true
+      log_file: /tmp/dmapi.log
+      log_dir: /tmp
+    oslo_middleware:
+      enable_proxy_headers_parsing: true
+    conductor:
+      use_local: True
+    database:
+      connection_recycle_time: 300
+      max_overflow: 30
+      max_pool_size: 10
+      max_retries: -1
+    keystone_authtoken:
+      auth_version: v3
+      auth_type: password
+      memcache_security_strategy: ENCRYPT
+      memcache_secret_key: x4DuDDNYR0AphdXw
+    service_credentials:
+      auth_type: password
+      interface: internal
+      auth_version: v3
+    oslo_messaging_notifications:
+      driver: messagingv2
+      topics: notifications,stacklight_notifications
+    oslo_messaging_rabbit:
+      rabbit_qos_prefetch_count: 64
+  workloadmgr:
+    DEFAULT:
+      api_workers: 2
+      workloads_workers: 2
+      triliovault_hostnames: tvault-wlm-api
+      api_paste_config: /etc/workloadmgr/api-paste.ini
+      cinder_production_endpoint_template: http://cinder-api.openstack.svc.cluster.local:8776/v3/%(tenant_id)s
+      cloud_admin_domain: default
+      cloud_admin_project_id: <INSERT DATA>
+      cloud_admin_role: admin
+      cloud_admin_user_id:  <INSERT DATA>
+      cloud_unique_id:  <INSERT DATA>
+      compute_driver: libvirt.LibvirtDriver
+      config_status: configured
+      verbose: true
+      domain_name: service
+      glance_api_version: 2
+      glance_production_api_servers: http://glance-api.openstack.svc.cluster.local:9292
+      glance_production_host: glance-api.openstack.svc.cluster.local
+      global_job_scheduler_override: false
+      keystone_auth_version: 3
+      keystone_endpoint_url: http://keystone-api.openstack.svc.cluster.local:5000/v3
+      log_dir: /tmp
+      neutron_admin_auth_url: http://keystone-api.openstack.svc.cluster.local:5000/v3
+      neutron_production_url: http://neutron-server.openstack.svc.cluster.local:9696
+      nova_admin_auth_url: http://keystone-api.openstack.svc.cluster.local:5000/v3
+      nova_production_endpoint_template: http://nova-api.openstack.svc.cluster.local:8774/v2.1/%(tenant_id)s
+      region_name_for_services: RegionOne
+      rootwrap_config: /etc/workloadmgr/rootwrap.conf
+      state_path: /var/lib/workloadmgr
+      triliovault_user_domain_id: <INSERT DATA>
+      trustee_role: admin
+      use_stderr: false
+      use_syslog: false
+      vault_storage_das_device: none
+      vault_storage_type: s3
+    clients:
+      client_retry_limit: 3
+      endpoint_type: internal
+    global_job_scheduler:
+      misfire_grace_time: 600
+    keystone_authtoken:
+      auth_version: v3
+      auth_type: password
+      memcache_security_strategy: ENCRYPT
+      memcache_secret_key: x4DuDDNYR0AphdXw
+      project_domain_id: <INSERT DATA>
+      user_domain_id: <INSERT DATA>
+  contego:
+    DEFAULT:
+      use_virt_qemu: False
+      log_file: /tmp/tvault-contego.log
+      verbose: true
+      vault_storage_das_device: none
+      vault_storage_type: s3
+      vault_storage_nfs_export: TrilioVault
+    dmapi_database:
+      connection_recycle_time: 300
+      max_overflow: 30
+      max_pool_size: 10
+      max_retries: -1
+    contego_sys_admin:
+      helper_command: sudo /usr/bin/nova-rootwrap /etc/nova/rootwrap.conf privsep-helper
+    ceph:
+      ceph_dir: /etc/ceph
+    libvirt:
+      rbd_user: nova
+      images_rbd_ceph_conf: /etc/ceph/ceph.conf
+    backends:
+      override_block: cinder
+  logging:
+    loggers:
+      keys:
+        - root
+        - contego
+        - os.brick
+    handlers:
+      keys:
+        - stdout
+        - stderr
+        - "null"
+    formatters:
+      keys:
+        - context
+        - default
+    logger_root:
+      level: WARNING
+      handlers: stdout
+    logger_contego:
+      level: INFO
+      handlers: ""
+      qualname: contego
+    logger_os.brick:
+      level: INFO
+      handlers: ""
+      qualname: os.brick
+    logger_amqp:
+      level: WARNING
+      handlers: ""
+      qualname: amqp
+    logger_amqplib:
+      level: WARNING
+      handlers: ""
+      qualname: amqplib
+    logger_eventletwsgi:
+      level: WARNING
+      handlers: ""
+      qualname: eventlet.wsgi.server
+    logger_sqlalchemy:
+      level: WARNING
+      handlers: ""
+      qualname: sqlalchemy
+    logger_boto:
+      level: WARNING
+      handlers: ""
+      qualname: boto
+    handler_null:
+      class: logging.NullHandler
+      formatter: default
+      args: ()
+    handler_stdout:
+      class: StreamHandler
+      args: (sys.stdout,)
+      formatter: context
+    handler_stderr:
+      class: StreamHandler
+      args: (sys.stderr,)
+      formatter: context
+    formatter_context:
+      class: oslo_log.formatters.ContextFormatter
+      datefmt: "%Y-%m-%d %H:%M:%S"
+    formatter_default:
+      format: "%(message)s"
+      datefmt: "%Y-%m-%d %H:%M:%S"
+
+secrets:
+  identity:
+    admin: tvault-keystone-admin
+    tvault: tvault-keystone-user
+  oslo_db:
+    admin: tvault-db-admin
+    tvault: tvault-db-user
+  oslo_db_wlm:
+    admin: tvault-db-wlm-admin
+    wlm: tvault-db-wlm-user
+  oslo_messaging:
+    admin: tvault-rabbitmq-admin
+    tvault: tvault-rabbitmq-user
+  tls:
+    datamover:
+      api:
+        public: tvault-tls-public
+    workloads:
+      api:
+        public: wlm-tls-public
+
+bootstrap:
+  enabled: false
+  ks_user: tvault
+  script: |
+    openstack token issue
+
+# typically overriden by environmental
+# values, but should include all endpoints
+# required by this chart
+endpoints:
+  cluster_domain_suffix: cluster.local
+  local_image_registry:
+    name: docker-registry
+    namespace: docker-registry
+    hosts:
+      default: localhost
+      internal: docker-registry
+      node: localhost
+    host_fqdn_override:
+      default: null
+    port:
+      registry:
+        node: 5000
+  identity:
+    name: keystone
+    auth:
+      admin:
+        region_name: RegionOne
+        username: admin
+        password: password
+        project_name: admin
+        user_domain_name: default
+        project_domain_name: default
+      tvault:
+        role: admin
+        region_name: RegionOne
+        username: tvault
+        password: password
+        project_name: service
+        user_domain_name: service
+        project_domain_name: service
+    hosts:
+      default: keystone
+      internal: keystone-api
+    host_fqdn_override:
+      default: null
+    path:
+      default: /v3
+    scheme:
+      default: 'http'
+    port:
+      api:
+        default: 80
+        internal: 5000
+  datamover:
+    name: tvault
+    hosts:
+      default: tvault-api
+      public: tvault
+    host_fqdn_override:
+      default: null
+      # NOTE: this chart supports TLS for fqdn over-ridden public
+      # endpoints using the following format:
+      # public:
+      #   host: null
+      #   tls:
+      #     crt: null
+      #     key: null
+    path:
+      default: /v2
+    scheme:
+      default: 'http'
+    port:
+      api:
+        default: 8785
+        public: 80
+  workloads:
+    name: workloadmgr
+    hosts:
+      default: workloadmgr-api
+      public: workloadmgr
+    host_fqdn_override:
+      default: null
+      # NOTE: this chart supports TLS for fqdn over-ridden public
+      # endpoints using the following format:
+      # public:
+      #   host: null
+      #   tls:
+      #     crt: null
+      #     key: null
+    path:
+      default: /v1/$(tenant_id)s
+    scheme:
+      default: 'http'
+    port:
+      api:
+        default: 8780
+        public: 80
+  oslo_db:
+    auth:
+      admin:
+        username: root
+        password: password
+      tvault:
+        username: tvault
+        password: password
+    hosts:
+      default: mariadb
+    host_fqdn_override:
+      default: null
+    path: /tvault
+    scheme: mysql+pymysql
+    port:
+      mysql:
+        default: 3306
+  oslo_db_wlm:
+    auth:
+      admin:
+        username: root
+        password: password
+      wlm:
+        username: wlm
+        password: password
+    hosts:
+      default: mariadb
+    host_fqdn_override:
+      default: null
+    path: /workloadmgr
+    scheme: mysql+pymysql
+    port:
+      mysql:
+        default: 3306
+  oslo_cache:
+    auth:
+      # NOTE: this is used to define the value for keystone
+      # authtoken cache encryption key, if not set it will be populated
+      # automatically with a random value, but to take advantage of
+      # this feature all services should be set to use the same key,
+      # and memcache service.
+      memcache_secret_key: null
+    hosts:
+      default: memcached
+    host_fqdn_override:
+      default: null
+    port:
+      memcache:
+        default: 11211
+  oslo_messaging:
+    auth:
+      admin:
+        username: rabbitmq
+        password: password
+      tvault:
+        username: tvault
+        password: password
+    statefulset:
+      replicas: 2
+      name: rabbitmq-rabbitmq
+    hosts:
+      default: rabbitmq
+    host_fqdn_override:
+      default: null
+    path: /tvault
+    scheme: rabbit
+    port:
+      amqp:
+        default: 5672
+      http:
+        default: 15672
+  fluentd:
+    namespace: null
+    name: fluentd
+    hosts:
+      default: fluentd-logging
+    host_fqdn_override:
+      default: null
+    path:
+      default: null
+    scheme: 'http'
+    port:
+      service:
+        default: 24224
+      metrics:
+        default: 24220
+
+network_policy:
+  tvault:
+    ingress:
+      - {}
+    egress:
+      - {}
+
+manifests:
+  configmap_bin: true
+  configmap_etc: true
+  deployment_api: true
+  daemonset_contego: true
+  ingress_api: true
+  job_bootstrap: false
+  job_db_drop: false
+  job_db_init: true
+  job_image_repo_sync: true
+  job_rabbit_init: false
+  job_db_sync: true
+  job_ks_endpoints: true
+  job_ks_service: true
+  job_ks_user: true
+  network_policy: false
+  pdb_api: true
+  pod_tvault_test: false
+  secret_db: true
+  secret_keystone: true
+  secret_rabbitmq: false
+  secret_ingress_tls: true
+  service_api: true
+  service_ingress_api: true
+...

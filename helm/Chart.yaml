@@ -1,0 +1,10 @@
+apiVersion: v1
+appVersion: v1.0.0
+description: Openstack-Helm Trilio Vault
+home: https://trilio.io/
+maintainers:
+- name: OpenStack-Helm Authors
+name: tvault
+sources:
+- https://opendev.org/openstack/openstack-helm
+version: 0.2.7
